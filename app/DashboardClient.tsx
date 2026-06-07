@@ -3,8 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
-import { AlertCircle, Filter, RotateCcw } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie } from "recharts";
 import { MOCK_DATA, Transaction } from "./dashboard/mockData";
 
 export default function DashboardClient() {
