@@ -20,7 +20,7 @@ export async function GET() {
     // 将数据库字段映射为前端 Transaction 接口格式
     const data = rows.map((row) => ({
       id: row.id,
-      date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date),
+      date: String(row.date).slice(0, 10),
       amount: Number(row.amount),
       category: row.category,
       city: row.city,
