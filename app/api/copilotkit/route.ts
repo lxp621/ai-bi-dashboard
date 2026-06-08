@@ -1,18 +1,9 @@
-import {CopilotRuntime, OpenAIAdapter, copilotRuntimeNextJSAppRouterEndpoint} from "@copilotkit/runtime"
-import OpenAI from "openai"
-
-// 延迟初始化：避免构建时因缺少 OPENAI_API_KEY 报错
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || "",
-    baseURL: "https://api.deepseek.com"
-  })
-}
+import {CopilotRuntime, GoogleGenerativeAIAdapter, copilotRuntimeNextJSAppRouterEndpoint} from "@copilotkit/runtime"
 
 function getServiceAdapter() {
-  return new OpenAIAdapter({
-    openai: getOpenAIClient(),
-    model: "deepseek-v4-pro",
+  return new GoogleGenerativeAIAdapter({
+    apiKey: process.env.GOOGLE_API_KEY || "",
+    model: "gemini-2.5-flash",
   })
 }
 

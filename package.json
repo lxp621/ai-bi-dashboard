@@ -12,6 +12,8 @@
     "@copilotkit/react-core": "^1.56.0",
     "@copilotkit/react-ui": "^1.56.0",
     "@copilotkit/runtime": "^1.56.0",
+    "@langchain/core": "^1.1.48",
+    "@langchain/google-gauth": "^2.1.27",
     "lucide-react": "^1.17.0",
     "mysql2": "^3.22.4",
     "next": "15.3.9",
