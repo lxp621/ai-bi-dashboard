@@ -1,33 +1,51 @@
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS ai_bi_dashboard
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_unicode_ci;
+-- ============================================================
+-- Supabase / PostgreSQL 初始化脚本
+-- 在 Supabase Dashboard → SQL Editor 中执行
+-- ============================================================
 
-USE ai_bi_dashboard;
+-- 1. 创建交易流水表
+CREATE TABLE IF NOT EXISTS public.transactions (
+  id          TEXT          PRIMARY KEY,
+  date        DATE          NOT NULL,
+  amount      NUMERIC(10,2) NOT NULL,
+  category    TEXT          NOT NULL,
+  city        TEXT          NOT NULL,
+  merchant    TEXT          NOT NULL,
+  is_anomaly  BOOLEAN       NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
 
--- 创建交易流水表
-CREATE TABLE IF NOT EXISTS transactions (
-  id VARCHAR(36) PRIMARY KEY,
-  date DATE NOT NULL,
-  amount DECIMAL(10, 2) NOT NULL,
-  category VARCHAR(50) NOT NULL,
-  city VARCHAR(50) NOT NULL,
-  merchant VARCHAR(100) NOT NULL,
-  is_anomaly TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- 2. 常用查询索引
+CREATE INDEX IF NOT EXISTS idx_transactions_date     ON public.transactions (date);
+CREATE INDEX IF NOT EXISTS idx_transactions_category ON public.transactions (category);
+CREATE INDEX IF NOT EXISTS idx_transactions_city     ON public.transactions (city);
 
--- 插入初始 Mock 数据
-INSERT INTO transactions (id, date, amount, category, city, merchant, is_anomaly) VALUES
-  ('1', '2026-05-10', 1200.00, '电子产品', '北京', 'Apple Store', 0),
-  ('2', '2026-05-12', 85.00, '餐饮', '上海', '星巴克', 0),
-  ('3', '2026-05-15', 650.00, '服装', '上海', 'ZARA', 0),
-  ('4', '2026-05-20', 199.00, 'SaaS订阅', '北京', 'Adobe Cloud', 0),
-  ('5', '2026-05-20', 199.00, 'SaaS订阅', '北京', 'Adobe Cloud', 0),
-  ('6', '2026-05-22', 45.00, '交通', '深圳', '滴滴出行', 0),
-  ('7', '2026-05-25', 800.00, '服装', '北京', 'mayi', 0),
-  ('8', '2026-05-28', 55.00, '餐饮', '广州', '麦当劳', 0)
-ON DUPLICATE KEY UPDATE
-  amount = VALUES(amount),
-  category = VALUES(category),
-  city = VALUES(city),
-  merchant = VALUES(merchant);
+-- 3. 插入初始 Mock 数据(幂等)
+INSERT INTO public.transactions (id, date, amount, category, city, merchant, is_anomaly) VALUES
+  ('1', '2026-05-10', 1200.00, '电子产品', '北京',  'Apple Store',  FALSE),
+ON CONFLICT (id) DO UPDATE SET
+  date       = EXCLUDED.date,
+  amount     = EXCLUDED.amount,
+  category   = EXCLUDED.category,
+  city       = EXCLUDED.city,
+  merchant   = EXCLUDED.merchant,
+  is_anomaly = EXCLUDED.is_anomaly;
+
+-- 4. 启用行级安全(RLS)
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+
+-- 读策略:所有人可读
+CREATE POLICY "transactions_read_all"
+  ON public.transactions
+  FOR SELECT
+  TO anon, authenticated
+  USING (TRUE);
+
+-- 写策略:允许通过 publishable/anon key 更新 is_anomaly 字段
+-- 注意:生产环境建议改用 SERVICE_ROLE_KEY 并删除此策略
+CREATE POLICY "transactions_update_anomaly"
+  ON public.transactions
+  FOR UPDATE
+  TO anon, authenticated
+  USING (TRUE)
+  WITH CHECK (TRUE);
