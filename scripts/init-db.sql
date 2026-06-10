@@ -31,7 +31,33 @@ ON CONFLICT (id) DO UPDATE SET
   merchant   = EXCLUDED.merchant,
   is_anomaly = EXCLUDED.is_anomaly;
 
--- 4. 启用行级安全(RLS)
+-- 4. 创建聊天消息持久化表
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id          TEXT          PRIMARY KEY,          -- 前端生成的消息 UUID
+  thread_id   TEXT          NOT NULL,             -- 会话 ID(同一 session 共享)
+  role        TEXT          NOT NULL,             -- 'user' | 'assistant' | 'tool'
+  content     TEXT          NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread ON public.chat_messages (thread_id, created_at);
+
+-- 6. chat_messages RLS
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "chat_messages_read_all"
+  ON public.chat_messages
+  FOR SELECT
+  TO anon, authenticated
+  USING (TRUE);
+
+CREATE POLICY "chat_messages_insert_all"
+  ON public.chat_messages
+  FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (TRUE);
+
+-- 7. 启用行级安全(RLS)
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 -- 读策略:所有人可读

@@ -5,6 +5,10 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie } from "recharts";
 import { Transaction } from "./dashboard/mockData";
+import { usePersistedMessages } from "./lib/usePersistedMessages";
+
+/** 固定会话 ID，同一浏览器共享历史消息；如需多会话可改为 localStorage 存储 */
+const THREAD_ID = "dashboard-main";
 
 export default function DashboardClient() {
   const [data, setData] = useState<Transaction[]>([]);
@@ -12,6 +16,9 @@ export default function DashboardClient() {
   const [filters, setFilters] = useState({ category: "", city: "", minAmount: 0 });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 历史消息持久化：挂载时从 Supabase 加载，新消息产生时自动写入
+  usePersistedMessages(THREAD_ID);
 
   // 从后端拉取交易数据
   const fetchTransactions = useCallback(async () => {
@@ -55,6 +62,16 @@ export default function DashboardClient() {
   });
 
   useCopilotAction({
+    name: "resetFilters",
+    description: "清除所有筛选条件，恢复展示全部账单数据",
+    parameters: [],
+    handler: async () => {
+      setFilters({ category: "", city: "", minAmount: 0 });
+      return "已恢复显示全部数据。";
+    },
+  });
+
+  useCopilotAction({
     name: "switchChartType",
     description: "切换看板图表的展现形式",
     parameters: [{ name: "type", type: "string", description: "图表类型 'bar' 或 'pie'", required: true }],
@@ -92,6 +109,38 @@ export default function DashboardClient() {
     },
   });
 
+  useCopilotAction({
+    name: "sendAnomalyEmail",
+    description: "将异常账单列表以邮件形式发送给用户",
+    parameters: [
+      { name: "to", type: "string", description: "收件人邮箱地址", required: true },
+      { name: "transactionIds", type: "string[]", description: "要通知的异常账单 ID 数组", required: true },
+    ],
+    handler: async ({ to, transactionIds }) => {
+      try {
+        // 从当前数据中找到对应的异常账单详情
+        const anomalies = data.filter((item) => transactionIds.includes(item.id));
+        if (anomalies.length === 0) {
+          return "未找到对应的异常账单，邮件未发送。";
+        }
+        const res = await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, anomalies }),
+        });
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || `HTTP ${res.status}`);
+        }
+        return `已将 ${anomalies.length} 条异常账单详情发送至 ${to}。`;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "未知错误";
+        console.error("发送异常邮件失败:", e);
+        return `发送邮件失败: ${msg}`;
+      }
+    },
+  });
+
   // 数据计算
   const filteredData = useMemo(() => {
     return data.filter((item) => {
@@ -109,7 +158,6 @@ export default function DashboardClient() {
 
   return (
     <CopilotSidebar
-      instructions="你是一个资深的财务数据分析专家。"
       defaultOpen={true}
       clickOutsideToClose={false}
     >
